@@ -9,7 +9,7 @@ export function createTrpcClient() {
   return createTRPCClient<AppRouter>({
     links: [
       httpBatchLink({
-        url: "/trpc",
+        url: `${import.meta.env["VITE_API_URL"] ?? "http://localhost:4000"}/trpc`,
         headers() {
           const token = useAuthStore.getState().accessToken;
           return token ? { Authorization: `Bearer ${token}` } : {};

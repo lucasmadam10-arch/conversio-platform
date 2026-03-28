@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="he" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversio — Demo Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Heebo', sans-serif; background: #f9fafb; height: 100vh; overflow: hidden; display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 220px; background: #1e1b4b; display: flex; flex-direction: column;
+      padding: 16px 0; flex-shrink: 0;
+    }
+    .sidebar-logo {
+      padding: 0 20px 20px; font-size: 20px; font-weight: 700; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .sidebar-logo span { color: #a5b4fc; }
+    .sidebar-section { padding: 16px 12px 8px; font-size: 11px; font-weight: 600; color: #6d6a9c; text-transform: uppercase; letter-spacing: 0.05em; }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 20px;
+      color: #c4c0e8; font-size: 14px; cursor: pointer; border-radius: 0;
+      transition: background 0.15s; position: relative;
+    }
+    .sidebar-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .sidebar-item.active { background: rgba(99,102,241,0.3); color: #fff; }
+    .sidebar-item.active::left { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:#6366f1; border-radius:0 2px 2px 0; }
+    .badge {
+      margin-left: auto; background: #6366f1; color: #fff;
+      font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 99px;
+    }
+    .badge.orange { background: #f59e0b; }
+    .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .avatar-row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; }
+    .avatar-row:hover { background: rgba(255,255,255,0.08); }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: #6366f1; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 13px; flex-shrink: 0; }
+    .avatar-info { flex: 1; min-width: 0; }
+    .avatar-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .avatar-role { font-size: 11px; color: #6d6a9c; }
+
+    /* ── Conversation List ── */
+    .conv-list { width: 300px; background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; flex-shrink: 0; }
+    .conv-list-header { padding: 16px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; }
+    .conv-list-header h2 { font-size: 16px; font-weight: 700; color: #111827; }
+    .search-box { padding: 10px 16px; border-bottom: 1px solid #e5e7eb; }
+    .search-box input {
+      width: 100%; padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 13px; font-family: 'Heebo', sans-serif; outline: none; color: #374151;
+    }
+    .search-box input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .conv-item {
+      padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer;
+      transition: background 0.1s; position: relative;
+    }
+    .conv-item:hover { background: #f9fafb; }
+    .conv-item.active { background: #eef2ff; border-left: 3px solid #6366f1; }
+    .conv-item-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+    .conv-name { font-size: 13px; font-weight: 600; color: #111827; }
+    .conv-time { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+    .conv-preview { font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .conv-tags { display: flex; gap: 4px; margin-top: 6px; }
+    .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    .tag-open { background: #d1fae5; color: #065f46; }
+    .tag-waiting { background: #fef3c7; color: #92400e; }
+    .tag-web { background: #e0e7ff; color: #3730a3; }
+    .tag-high { background: #fee2e2; color: #991b1b; }
+    .unread-dot { width: 8px; height: 8px; background: #6366f1; border-radius: 50%; position: absolute; top: 16px; right: 16px; }
+
+    /* ── Thread ── */
+    .thread { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .thread-header {
+      padding: 16px 20px; border-bottom: 1px solid #e5e7eb; background: #fff;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .thread-header-left { display: flex; align-items: center; gap: 12px; }
+    .thread-contact-avatar { width: 36px; height: 36px; border-radius: 50%; background: #ddd6fe; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #5b21b6; font-size: 14px; }
+    .thread-contact-name { font-size: 15px; font-weight: 700; color: #111827; }
+    .thread-contact-sub { font-size: 12px; color: #6b7280; }
+    .thread-actions { display: flex; gap: 8px; }
+    .btn { padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; font-family: 'Heebo', sans-serif; transition: all 0.15s; }
+    .btn-ghost { background: #f3f4f6; color: #374151; }
+    .btn-ghost:hover { background: #e5e7eb; }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-success { background: #10b981; color: #fff; }
+    .btn-success:hover { background: #059669; }
+
+    .messages { flex: 1; overflow-y: auto; padding: 20px; background: #fafafa; display: flex; flex-direction: column; gap: 12px; }
+    .msg { display: flex; flex-direction: column; max-width: 70%; }
+    .msg.visitor { align-self: flex-start; }
+    .msg.agent { align-self: flex-end; align-items: flex-end; }
+    .msg-bubble {
+      padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.5;
+    }
+    .msg.visitor .msg-bubble { background: #f3f4f6; color: #111827; border-bottom-left-radius: 4px; }
+    .msg.agent .msg-bubble { background: #6366f1; color: #fff; border-bottom-right-radius: 4px; }
+    .msg-meta { font-size: 11px; color: #9ca3af; margin-top: 3px; padding: 0 4px; }
+
+    .system-msg { text-align: center; font-size: 12px; color: #9ca3af; padding: 4px 0; }
+
+    .reply-box { padding: 16px; border-top: 1px solid #e5e7eb; background: #fff; }
+    .reply-box textarea {
+      width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 10px;
+      font-size: 14px; font-family: 'Heebo', sans-serif; resize: none; outline: none;
+      color: #111827; line-height: 1.5; min-height: 72px;
+    }
+    .reply-box textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+    .reply-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .reply-hint { font-size: 12px; color: #9ca3af; }
+
+    /* ── Empty State ── */
+    .empty-thread { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; color: #9ca3af; }
+    .empty-icon { font-size: 48px; }
+    .empty-text { font-size: 15px; }
+
+    /* ── Page views ── */
+    .page { display: none; flex: 1; overflow: hidden; }
+    .page.active { display: flex; }
+
+    /* ── Tickets Page ── */
+    .tickets-list { width: 380px; background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; flex-shrink: 0; }
+    .ticket-item { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background 0.1s; }
+    .ticket-item:hover { background: #f9fafb; }
+    .ticket-item.active { background: #eef2ff; }
+    .ticket-subject { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 4px; }
+    .ticket-meta { display: flex; gap: 8px; align-items: center; }
+    .priority { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .priority-high { color: #ef4444; }
+    .priority-medium { color: #f59e0b; }
+    .priority-low { color: #6b7280; }
+    .ticket-state { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #f3f4f6; color: #374151; }
+    .ticket-detail { flex: 1; background: #fff; padding: 32px; overflow-y: auto; }
+    .ticket-detail h2 { font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 16px; }
+    .ticket-detail-meta { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .ticket-detail-meta span { font-size: 13px; color: #6b7280; background: #f3f4f6; padding: 4px 10px; border-radius: 6px; }
+
+    /* ── Notification toast ── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: #111827; color: #fff;
+      padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500;
+      transform: translateY(80px); opacity: 0; transition: all 0.3s; z-index: 9999;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Demo badge ── */
+    .demo-badge {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+      padding: 4px 16px; border-radius: 99px; font-size: 12px; font-weight: 600; z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+
+<div class="demo-badge">🎭 Demo — נתונים מדומים</div>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">Convers<span>io</span></div>
+
+  <div class="sidebar-section">Inbox</div>
+  <div class="sidebar-item active" onclick="showPage('inbox', this)">
+    💬 All Conversations <span class="badge">12</span>
+  </div>
+  <div class="sidebar-item" onclick="showPage('inbox', this)">
+    📥 Unassigned <span class="badge">5</span>
+  </div>
+  <div class="sidebar-item" onclick="showPage('inbox', this)">
+    👤 Mine <span class="badge">3</span>
+  </div>
+  <div class="sidebar-item" onclick="showPage('inbox', this)">
+    ✅ Resolved
+  </div>
+
+  <div class="sidebar-section">Manage</div>
+  <div class="sidebar-item" onclick="showPage('tickets', this)">
+    🎫 Tickets <span class="badge orange">4</span>
+  </div>
+  <div class="sidebar-item" onclick="showPage('inbox', this)">
+    👥 Contacts
+  </div>
+  <div class="sidebar-item" onclick="showPage('inbox', this)">
+    📊 Analytics
+  </div>
+  <div class="sidebar-item" onclick="showPage('inbox', this)">
+    ⚙️ Settings
+  </div>
+
+  <div class="sidebar-bottom">
+    <div class="avatar-row">
+      <div class="avatar">A</div>
+      <div class="avatar-info">
+        <div class="avatar-name">Admin User</div>
+        <div class="avatar-role">admin@demo.local</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Inbox Page -->
+<div class="page active" id="page-inbox">
+  <!-- Conversation List -->
+  <div class="conv-list">
+    <div class="conv-list-header">
+      <h2>Conversations</h2>
+      <button class="btn btn-primary" style="padding:5px 10px;font-size:12px;">+ New</button>
+    </div>
+    <div class="search-box">
+      <input type="text" placeholder="🔍  Search conversations..." oninput="filterConvs(this.value)" />
+    </div>
+    <div id="conv-list-items" style="flex:1;overflow-y:auto;">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <!-- Thread -->
+  <div class="thread" id="thread-panel">
+    <div class="empty-thread" id="thread-empty">
+      <div class="empty-icon">💬</div>
+      <div class="empty-text">בחר שיחה להצגה</div>
+    </div>
+    <div id="thread-content" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
+      <div class="thread-header">
+        <div class="thread-header-left">
+          <div class="thread-contact-avatar" id="th-avatar">?</div>
+          <div>
+            <div class="thread-contact-name" id="th-name">—</div>
+            <div class="thread-contact-sub" id="th-sub">Web Chat · Unassigned</div>
+          </div>
+        </div>
+        <div class="thread-actions">
+          <button class="btn btn-ghost" onclick="toast('הוקצה לך ✓')">Assign to me</button>
+          <button class="btn btn-success" onclick="resolveConv()">Resolve</button>
+        </div>
+      </div>
+      <div class="messages" id="messages-area"></div>
+      <div class="reply-box">
+        <textarea id="reply-input" placeholder="Type a reply… (Enter to send)" onkeydown="handleReplyKey(event)"></textarea>
+        <div class="reply-footer">
+          <span class="reply-hint">Enter לשליחה · Shift+Enter לשורה חדשה</span>
+          <button class="btn btn-primary" onclick="sendReply()">Send ↑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tickets Page -->
+<div class="page" id="page-tickets">
+  <div class="tickets-list">
+    <div class="conv-list-header">
+      <h2>Tickets</h2>
+      <button class="btn btn-primary" style="padding:5px 10px;font-size:12px;" onclick="toast('פותח טופס יצירת טיקט...')">+ New</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;" id="ticket-list-items"></div>
+  </div>
+  <div class="ticket-detail" id="ticket-detail-panel">
+    <div class="empty-thread" style="height:100%;display:flex;">
+      <div class="empty-icon">🎫</div>
+      <div class="empty-text">בחר טיקט להצגה</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Mock Data ──
+  const conversations = [
+    {
+      id: '1', name: 'יוסי כהן', initials: 'י', preview: 'היי, יש לי בעיה עם ההזמנה שלי',
+      time: 'עכשיו', tags: ['open', 'web'], unread: true,
+      messages: [
+        { type: 'visitor', text: 'שלום, אני צריך עזרה עם ההזמנה שלי', time: '14:20' },
+        { type: 'system', text: 'שיחה הוקצתה לתמיכה' },
+        { type: 'agent', text: 'היי יוסי! שמח לעזור. מה הבעיה עם ההזמנה?', time: '14:21' },
+        { type: 'visitor', text: 'הזמנתי לפני 3 ימים ועדיין לא קיבלתי אישור', time: '14:22' },
+      ]
+    },
+    {
+      id: '2', name: 'מיכל לוי', initials: 'מ', preview: 'תודה על העזרה!',
+      time: '5 דק', tags: ['waiting', 'web'],
+      messages: [
+        { type: 'visitor', text: 'שלום, אני מעוניינת לשדרג את המנוי שלי', time: '13:10' },
+        { type: 'agent', text: 'כמובן! איזה מנוי מעניין אותך?', time: '13:12' },
+        { type: 'visitor', text: 'מנוי Pro עם תמיכה עדיפות', time: '13:13' },
+        { type: 'agent', text: 'מצוין! אני שולח לך קישור לשדרוג', time: '13:15' },
+        { type: 'visitor', text: 'תודה על העזרה!', time: '13:16' },
+      ]
+    },
+    {
+      id: '3', name: 'דני אברהם', initials: 'ד', preview: 'אפשר לקבל החזר כספי?',
+      time: '22 דק', tags: ['open', 'high'],
+      messages: [
+        { type: 'visitor', text: 'שלום, רכשתי בטעות את החבילה הלא נכונה', time: '12:00' },
+        { type: 'visitor', text: 'אפשר לקבל החזר כספי?', time: '12:01' },
+      ]
+    },
+    {
+      id: '4', name: 'רחל ברק', initials: 'ר', preview: 'מתי תגיע המשלוח?',
+      time: '1 שעה', tags: ['open', 'web'],
+      messages: [
+        { type: 'visitor', text: 'הזמנתי לפני שבוע, מתי תגיע המשלוח?', time: '11:00' },
+        { type: 'agent', text: 'אני בודק עבורך כרגע...', time: '11:05' },
+      ]
+    },
+    {
+      id: '5', name: 'אמיר שמיר', initials: 'א', preview: 'תודה רבה!',
+      time: '2 שעות', tags: [],
+      messages: [
+        { type: 'visitor', text: 'הבעיה נפתרה, תודה רבה!', time: '10:00' },
+        { type: 'agent', text: 'שמח שעזרתי! יש עוד משהו?', time: '10:02' },
+        { type: 'visitor', text: 'לא, הכל בסדר', time: '10:03' },
+      ]
+    },
+  ];
+
+  const tickets = [
+    { id: 't1', subject: 'בעיה בחיוב חודשי', priority: 'HIGH', state: 'OPEN', source: 'Email' },
+    { id: 't2', subject: 'בקשה להחזר כספי', priority: 'HIGH', state: 'IN_PROGRESS', source: 'Chat' },
+    { id: 't3', subject: 'שאלה על תכונות Pro', priority: 'MEDIUM', state: 'OPEN', source: 'Manual' },
+    { id: 't4', subject: 'שגיאה בהתחברות', priority: 'LOW', state: 'WAITING_ON_CUSTOMER', source: 'Chat' },
+  ];
+
+  let activeConvId = null;
+  let activeTicketId = null;
+
+  // ── Render Conversations ──
+  function renderConvs(list) {
+    const container = document.getElementById('conv-list-items');
+    container.innerHTML = list.map(c => `
+      <div class="conv-item ${activeConvId === c.id ? 'active' : ''}" onclick="openConv('${c.id}')">
+        ${c.unread ? '<div class="unread-dot"></div>' : ''}
+        <div class="conv-item-top">
+          <span class="conv-name">${c.name}</span>
+          <span class="conv-time">${c.time}</span>
+        </div>
+        <div class="conv-preview">${c.preview}</div>
+        <div class="conv-tags">
+          ${c.tags.includes('open') ? '<span class="tag tag-open">Open</span>' : ''}
+          ${c.tags.includes('waiting') ? '<span class="tag tag-waiting">Waiting</span>' : ''}
+          ${c.tags.includes('web') ? '<span class="tag tag-web">Web</span>' : ''}
+          ${c.tags.includes('high') ? '<span class="tag tag-high">High</span>' : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function filterConvs(q) {
+    const filtered = conversations.filter(c =>
+      c.name.includes(q) || c.preview.includes(q)
+    );
+    renderConvs(filtered);
+  }
+
+  function openConv(id) {
+    activeConvId = id;
+    const conv = conversations.find(c => c.id === id);
+    conv.unread = false;
+    renderConvs(conversations);
+
+    document.getElementById('thread-empty').style.display = 'none';
+    const content = document.getElementById('thread-content');
+    content.style.display = 'flex';
+
+    document.getElementById('th-avatar').textContent = conv.initials;
+    document.getElementById('th-name').textContent = conv.name;
+
+    const area = document.getElementById('messages-area');
+    area.innerHTML = conv.messages.map(m => {
+      if (m.type === 'system') return `<div class="system-msg">— ${m.text} —</div>`;
+      return `
+        <div class="msg ${m.type}">
+          <div class="msg-bubble">${m.text}</div>
+          <div class="msg-meta">${m.time} · ${m.type === 'agent' ? 'Admin User' : conv.name}</div>
+        </div>`;
+    }).join('');
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function handleReplyKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); }
+  }
+
+  function sendReply() {
+    const input = document.getElementById('reply-input');
+    const text = input.value.trim();
+    if (!text || !activeConvId) return;
+
+    const conv = conversations.find(c => c.id === activeConvId);
+    const now = new Date();
+    const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+    conv.messages.push({ type: 'agent', text, time });
+    conv.preview = text;
+    conv.time = 'עכשיו';
+
+    openConv(activeConvId);
+    input.value = '';
+    toast('הודעה נשלחה ✓');
+  }
+
+  function resolveConv() {
+    if (!activeConvId) return;
+    const conv = conversations.find(c => c.id === activeConvId);
+    conv.tags = [];
+    conv.preview = '✅ נסגרה';
+    renderConvs(conversations);
+    document.getElementById('thread-empty').style.display = 'flex';
+    document.getElementById('thread-content').style.display = 'none';
+    activeConvId = null;
+    toast('שיחה נסגרה ✓');
+  }
+
+  // ── Tickets ──
+  function renderTickets() {
+    const container = document.getElementById('ticket-list-items');
+    const priorityClass = { HIGH: 'priority-high', MEDIUM: 'priority-medium', LOW: 'priority-low' };
+    container.innerHTML = tickets.map(t => `
+      <div class="ticket-item ${activeTicketId === t.id ? 'active' : ''}" onclick="openTicket('${t.id}')">
+        <div class="ticket-subject">${t.subject}</div>
+        <div class="ticket-meta">
+          <span class="priority ${priorityClass[t.priority]}">${t.priority}</span>
+          <span class="ticket-state">${t.state.replace(/_/g,' ')}</span>
+          <span style="font-size:11px;color:#9ca3af">${t.source}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function openTicket(id) {
+    activeTicketId = id;
+    renderTickets();
+    const t = tickets.find(x => x.id === id);
+    document.getElementById('ticket-detail-panel').innerHTML = `
+      <h2>${t.subject}</h2>
+      <div class="ticket-detail-meta">
+        <span>Priority: ${t.priority}</span>
+        <span>Status: ${t.state.replace(/_/g,' ')}</span>
+        <span>Source: ${t.source}</span>
+      </div>
+      <p style="color:#6b7280;font-size:14px;line-height:1.6;margin-bottom:24px">
+        זהו טיקט לדוגמה. בגרסה האמיתית יופיעו כאן פרטי הטיקט המלאים,
+        היסטוריית הפעולות, תגובות פנימיות, וקישור לשיחה המקורית.
+      </p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="toast('טיקט עודכן ✓')">Save changes</button>
+        <button class="btn btn-success" onclick="toast('טיקט נסגר ✓')">Resolve ticket</button>
+        <button class="btn btn-ghost" onclick="toast('הוקצה לאחר ✓')">Assign</button>
+      </div>
+    `;
+  }
+
+  // ── Page Switch ──
+  function showPage(page, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ── Toast ──
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // ── Init ──
+  renderConvs(conversations);
+  renderTickets();
+</script>
+</body>
+</html>
