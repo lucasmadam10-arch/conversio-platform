@@ -11,4 +11,4 @@ RUN pnpm --filter @conversio/db run build
 RUN pnpm --filter @conversio/api run build
 EXPOSE 4000
 # Push DB schema then start
-CMD ["sh", "-c", "node_modules/.bin/prisma db push --schema=packages/db/prisma/schema.prisma --skip-generate --accept-data-loss && node packages/api/dist/index.js"]
+CMD ["sh", "-c", "packages/db/node_modules/.bin/prisma db push --schema=packages/db/prisma/schema.prisma --skip-generate --accept-data-loss && node packages/api/dist/index.js"]
