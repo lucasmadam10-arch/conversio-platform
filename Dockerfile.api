@@ -5,8 +5,7 @@ COPY . .
 # Remove stale Windows build cache
 RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @conversio/shared build
-RUN pnpm --filter @conversio/db build
+# tsc -b in api handles project references (shared, db) automatically
 RUN pnpm --filter @conversio/api build
 EXPOSE 4000
 CMD ["node", "packages/api/dist/index.js"]

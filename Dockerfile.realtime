@@ -2,8 +2,9 @@ FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY . .
+RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @conversio/shared build
+# tsc -b in realtime handles project references (shared) automatically
 RUN pnpm --filter @conversio/realtime build
 EXPOSE 3001
 CMD ["node", "packages/realtime/dist/index.js"]
