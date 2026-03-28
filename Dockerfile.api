@@ -2,13 +2,13 @@ FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY . .
-# Remove stale Windows build cache
 RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
-# Generate Prisma client (creates packages/db/src/generated/client)
-RUN pnpm --filter @conversio/db prisma generate
-# tsc -b builds shared + db + api via project references
-RUN pnpm --filter @conversio/api build
+# Build in dependency order
+RUN pnpm --filter @conversio/shared run build
+RUN pnpm --filter @conversio/db run generate
+RUN pnpm --filter @conversio/db run build
+RUN pnpm --filter @conversio/api run build
 EXPOSE 4000
-# Push schema to DB then start (safe for fresh Railway Postgres)
-CMD ["sh", "-c", "pnpm --filter @conversio/db prisma db push --skip-generate --accept-data-loss && node packages/api/dist/index.js"]
+# Push DB schema then start
+CMD ["sh", "-c", "node_modules/.bin/prisma db push --schema=packages/db/prisma/schema.prisma --skip-generate --accept-data-loss && node packages/api/dist/index.js"]
