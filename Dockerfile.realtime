@@ -1,10 +1,11 @@
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY . .
 RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
-# tsc -b builds shared + realtime via project references
+RUN pnpm --filter @conversio/shared run build
 RUN pnpm --filter @conversio/realtime build
 EXPOSE 3001
 CMD ["node", "packages/realtime/dist/index.js"]
