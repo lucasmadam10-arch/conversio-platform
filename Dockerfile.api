@@ -5,9 +5,10 @@ COPY . .
 # Remove stale Windows build cache
 RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
-# Generate Prisma client before building (creates packages/db/src/generated/client)
+# Generate Prisma client (creates packages/db/src/generated/client)
 RUN pnpm --filter @conversio/db prisma generate
-# tsc -b in api handles project references (shared, db) automatically
+# tsc -b builds shared + db + api via project references
 RUN pnpm --filter @conversio/api build
 EXPOSE 4000
-CMD ["node", "packages/api/dist/index.js"]
+# Push schema to DB then start (safe for fresh Railway Postgres)
+CMD ["sh", "-c", "pnpm --filter @conversio/db prisma db push --skip-generate --accept-data-loss && node packages/api/dist/index.js"]

@@ -2,8 +2,11 @@ FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY . .
+RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
+# Build shared first (dashboard imports types from it)
 RUN pnpm --filter @conversio/shared build
+# Build the dashboard Vite bundle
 RUN pnpm --filter @conversio/dashboard build
 EXPOSE 5176
 CMD ["node", "scripts/serve-dashboard.mjs"]

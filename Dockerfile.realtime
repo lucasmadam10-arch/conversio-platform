@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . .
 RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
-# tsc -b in realtime handles project references (shared) automatically
+# tsc -b builds shared + realtime via project references
 RUN pnpm --filter @conversio/realtime build
 EXPOSE 3001
 CMD ["node", "packages/realtime/dist/index.js"]

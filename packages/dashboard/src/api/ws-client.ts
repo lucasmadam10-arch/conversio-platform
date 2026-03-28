@@ -7,7 +7,8 @@ class DashboardWsClient {
   private handlers = new Map<string, Set<EventHandler>>();
 
   connect(token: string) {
-    const wsUrl = `${import.meta.env["VITE_WS_URL"] ?? "ws://localhost:3001"}/ws?token=${token}`;
+    const runtimeWsUrl = (window as unknown as { __WS_URL__?: string }).__WS_URL__;
+    const wsUrl = `${runtimeWsUrl ?? import.meta.env["VITE_WS_URL"] ?? "ws://localhost:3001"}/ws?token=${token}`;
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {

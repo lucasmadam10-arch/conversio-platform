@@ -6,8 +6,9 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "../packages/dashboard/dist");
-const PORT = 5176;
-const API_URL = "http://localhost:4000";
+const PORT = process.env["PORT"] ?? 5176;
+const API_URL = process.env["API_URL"] ?? "http://localhost:4000";
+const WS_URL = process.env["WS_URL"] ?? "ws://localhost:3001";
 
 const MIME = {
   ".html": "text/html",
@@ -21,25 +22,33 @@ const MIME = {
 
 function proxyRequest(req, res) {
   const target = new URL(req.url, API_URL);
+  const isHttps = target.protocol === "https:";
+  const lib = isHttps ? https : http;
   const options = {
     hostname: target.hostname,
-    port: target.port || 4000,
+    port: target.port || (isHttps ? 443 : 80),
     path: target.pathname + target.search,
     method: req.method,
     headers: { ...req.headers, host: target.host },
   };
 
-  const proxy = http.request(options, (proxyRes) => {
+  const proxy = lib.request(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
     proxyRes.pipe(res);
   });
 
   proxy.on("error", () => {
     res.writeHead(502);
-    res.end("API not reachable — is the API running on port 4000?");
+    res.end("API not reachable");
   });
 
   req.pipe(proxy);
+}
+
+// Inject WS_URL into HTML so the browser knows where to connect WebSocket
+function injectEnv(html) {
+  const script = `<script>window.__WS_URL__=${JSON.stringify(WS_URL)};</script>`;
+  return html.replace("</head>", `${script}</head>`);
 }
 
 const server = http.createServer((req, res) => {
@@ -55,39 +64,44 @@ const server = http.createServer((req, res) => {
 
   const url = req.url.split("?")[0];
 
-  // Proxy API calls to the backend
+  // Proxy API calls to the backend service
   if (url.startsWith("/trpc") || url.startsWith("/widget") || url.startsWith("/internal") || url.startsWith("/health")) {
     proxyRequest(req, res);
     return;
   }
 
   // Try to serve static file
-  let filePath = path.join(distDir, url === "/" ? "/index.html" : url);
+  const filePath = path.join(distDir, url === "/" ? "/index.html" : url);
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // SPA fallback — serve index.html for all unknown routes
+      // SPA fallback — serve index.html for client-side routing
       fs.readFile(path.join(distDir, "index.html"), (err2, html) => {
         if (err2) {
           res.writeHead(404);
-          res.end("Dashboard not built yet. Run: pnpm --filter @conversio/dashboard build");
+          res.end("Dashboard not built yet.");
           return;
         }
         res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(html);
+        res.end(injectEnv(html.toString()));
       });
       return;
     }
 
     const ext = path.extname(filePath);
+    if (ext === ".html") {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(injectEnv(data.toString()));
+      return;
+    }
+
     res.writeHead(200, { "Content-Type": MIME[ext] ?? "text/plain" });
     res.end(data);
   });
 });
 
 server.listen(PORT, () => {
-  console.log(`Dashboard server running at http://localhost:${PORT}`);
-  console.log(`  Login:  http://localhost:${PORT}/login`);
-  console.log(`  Inbox:  http://localhost:${PORT}/inbox`);
+  console.log(`Dashboard running on port ${PORT}`);
   console.log(`  API proxy → ${API_URL}`);
+  console.log(`  WS URL    → ${WS_URL}`);
 });
