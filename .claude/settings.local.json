@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Bash(NODE_DIR=\"/c/Users/lucas/node/node-v24.14.1-win-x64\")",
+      "Bash(export PATH=\"$NODE_DIR:$PATH\")",
+      "Bash(node \"$NODE_DIR/node_modules/corepack/dist/corepack.js\" pnpm --filter @conversio/db run build)"
+    ]
+  }
+}

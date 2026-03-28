@@ -1,0 +1,514 @@
+// Conversio Platform — Prisma Schema
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/client"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [uuid_ossp(map: "uuid-ossp"), pgvector(map: "vector"), pg_trgm]
+}
+
+// ============================================
+// TENANCY & AUTH
+// ============================================
+
+model Tenant {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String
+  slug      String    @unique
+  plan      Plan      @default(FREE)
+  locale    String    @default("en")
+  settings  Json      @default("{}") // widget theme, business hours, branding
+  quotas    Json      @default("{}") // conversation limits, AI limits, flow limits
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users                  User[]
+  contacts               Contact[]
+  conversations          Conversation[]
+  tickets                Ticket[]
+  flowDefinitions        FlowDefinition[]
+  lyroConfig             LyroConfig?
+  knowledgeSources       KnowledgeSource[]
+  actionDefinitions      ActionDefinition[]
+  integrationConnections IntegrationConnection[]
+  eventLogs              EventLog[]
+
+  @@map("tenants")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  GROWTH
+  PLUS
+  PREMIUM
+}
+
+model User {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String     @map("tenant_id") @db.Uuid
+  email        String
+  passwordHash String     @map("password_hash")
+  displayName  String     @map("display_name")
+  role         UserRole   @default(AGENT)
+  permissions  Json       @default("[]")
+  twoFaEnabled Boolean    @default(false) @map("two_fa_enabled")
+  twoFaSecret  String?    @map("two_fa_secret")
+  status       UserStatus @default(ACTIVE)
+  preferences  Json       @default("{}") // inbox filters, saved views, notification prefs
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+// ============================================
+// CONTACTS
+// ============================================
+
+model Contact {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  externalIds Json      @default("{}") @map("external_ids")
+  properties  Json      @default("{}")
+  tags        String[]  @default([])
+  notes       String?
+  firstSeenAt DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  sessions      Session[]
+  conversations Conversation[]
+
+  @@index([tenantId])
+  @@index([externalIds], type: Gin)
+  @@map("contacts")
+}
+
+// ============================================
+// SESSIONS & CONVERSATIONS
+// ============================================
+
+model Session {
+  id         String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  contactId  String        @map("contact_id") @db.Uuid
+  channel    Channel
+  deviceInfo Json          @default("{}") @map("device_info")
+  status     SessionStatus @default(ACTIVE)
+  metadata   Json          @default("{}") // page URL, referrer, UTM params
+  startedAt  DateTime      @default(now()) @map("started_at")
+  endedAt    DateTime?     @map("ended_at")
+
+  contact Contact @relation(fields: [contactId], references: [id])
+
+  @@index([contactId])
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  ACTIVE
+  IDLE
+  ENDED
+}
+
+enum Channel {
+  WEB_CHAT
+  MESSENGER
+  INSTAGRAM
+  WHATSAPP
+  EMAIL
+  API
+}
+
+model Conversation {
+  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String             @map("tenant_id") @db.Uuid
+  contactId        String             @map("contact_id") @db.Uuid
+  channel          Channel
+  currentOwnerType OwnerType          @default(UNASSIGNED) @map("current_owner_type")
+  currentOwnerId   String?            @map("current_owner_id")
+  folder           ConversationFolder @default(UNASSIGNED)
+  status           ConversationStatus @default(OPEN)
+  subject          String?
+  sessionVars      Json               @default("{}") @map("session_vars")
+  metadata         Json               @default("{}")
+  csatScore        Int?               @map("csat_score")
+  csatComment      String?            @map("csat_comment")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  resolvedAt       DateTime?          @map("resolved_at")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  contact    Contact     @relation(fields: [contactId], references: [id])
+  messages   Message[]
+  tickets    Ticket[]
+  flowRuns   FlowRun[]
+  actionRuns ActionRun[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, folder])
+  @@index([tenantId, currentOwnerType, currentOwnerId])
+  @@index([tenantId, channel])
+  @@index([contactId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+enum OwnerType {
+  UNASSIGNED
+  AGENT
+  FLOW
+  LYRO
+  SYSTEM
+}
+
+enum ConversationFolder {
+  UNASSIGNED
+  ASSIGNED
+  LYRO
+  RESOLVED
+  SPAM
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+// ============================================
+// MESSAGES
+// ============================================
+
+model Message {
+  id             String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId String     @map("conversation_id") @db.Uuid
+  senderType     SenderType @map("sender_type")
+  senderId       String?    @map("sender_id")
+  payload        Json
+  metadata       Json       @default("{}")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+enum SenderType {
+  VISITOR
+  AGENT
+  BOT
+  LYRO
+  SYSTEM
+}
+
+// ============================================
+// TICKETING
+// ============================================
+
+model Ticket {
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  conversationId String?        @map("conversation_id") @db.Uuid
+  subject        String
+  priority       TicketPriority @default(MEDIUM)
+  ownerId        String?        @map("owner_id") @db.Uuid
+  state          TicketState    @default(OPEN)
+  source         TicketSource   @default(CHAT)
+  slaDeadline    DateTime?      @map("sla_deadline")
+  metadata       Json           @default("{}")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  resolvedAt     DateTime?      @map("resolved_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+
+  @@index([tenantId, state])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, priority])
+  @@map("tickets")
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketState {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketSource {
+  CHAT
+  EMAIL
+  MANUAL
+  AI_HANDOFF
+}
+
+// ============================================
+// FLOW ENGINE
+// ============================================
+
+model FlowDefinition {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  version   Int      @default(1)
+  graphJson Json     @map("graph_json")
+  settings  Json     @default("{}")
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  flowRuns FlowRun[]
+
+  @@index([tenantId, isActive])
+  @@map("flow_definitions")
+}
+
+model FlowRun {
+  id               String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  flowDefinitionId String        @map("flow_definition_id") @db.Uuid
+  conversationId   String        @map("conversation_id") @db.Uuid
+  currentNode      String?       @map("current_node")
+  stateBlob        Json          @default("{}") @map("state_blob")
+  status           FlowRunStatus @default(RUNNING)
+  startedAt        DateTime      @default(now()) @map("started_at")
+  completedAt      DateTime?     @map("completed_at")
+
+  flowDefinition FlowDefinition @relation(fields: [flowDefinitionId], references: [id])
+  conversation   Conversation   @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([flowDefinitionId])
+  @@map("flow_runs")
+}
+
+enum FlowRunStatus {
+  RUNNING
+  WAITING_INPUT
+  WAITING_DELAY
+  COMPLETED
+  CANCELLED
+  ERRORED
+}
+
+// ============================================
+// AI / LYRO
+// ============================================
+
+model LyroConfig {
+  tenantId      String    @id @map("tenant_id") @db.Uuid
+  enabled       Boolean   @default(false)
+  channels      Channel[] @default([WEB_CHAT])
+  handoffPolicy Json      @default("{}") @map("handoff_policy")
+  guidance      String?
+  limits        Json      @default("{}")
+  audienceFilter Json     @default("{}") @map("audience_filter")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("lyro_configs")
+}
+
+model KnowledgeSource {
+  id             String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String              @map("tenant_id") @db.Uuid
+  sourceType     KnowledgeSourceType @map("source_type")
+  name           String
+  url            String?
+  config         Json                @default("{}")
+  status         IngestionStatus     @default(PENDING)
+  audienceFilter Json                @default("{}") @map("audience_filter")
+  lastSyncAt     DateTime?           @map("last_sync_at")
+  errorMessage   String?             @map("error_message")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id])
+  chunks KnowledgeChunk[]
+
+  @@index([tenantId])
+  @@map("knowledge_sources")
+}
+
+enum KnowledgeSourceType {
+  WEBSITE_URL
+  WEBSITE_SITEMAP
+  MANUAL_QA
+  CSV_IMPORT
+  ZENDESK_IMPORT
+  FILE_UPLOAD
+  SOLVED_CHATS
+  PRODUCT_CATALOG
+}
+
+enum IngestionStatus {
+  PENDING
+  PROCESSING
+  READY
+  ERROR
+  RESYNCING
+}
+
+model KnowledgeChunk {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sourceId     String   @map("source_id") @db.Uuid
+  content      String
+  metadata     Json     @default("{}")
+  embeddingRef String?  @map("embedding_ref")
+  chunkIndex   Int      @default(0) @map("chunk_index")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  source KnowledgeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@map("knowledge_chunks")
+}
+
+// ============================================
+// ACTIONS (AI Tool Calling)
+// ============================================
+
+model ActionDefinition {
+  id                   String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId             String   @map("tenant_id") @db.Uuid
+  name                 String
+  description          String?
+  instructions         String
+  sequence             Json
+  inputSchema          Json     @default("{}") @map("input_schema")
+  outputMapping        Json     @default("{}") @map("output_mapping")
+  requiresConfirmation Boolean  @default(true) @map("requires_confirmation")
+  enabled              Boolean  @default(true)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  actionRuns ActionRun[]
+
+  @@index([tenantId, enabled])
+  @@map("action_definitions")
+}
+
+model ActionRun {
+  id                 String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  actionDefinitionId String          @map("action_definition_id") @db.Uuid
+  conversationId     String          @map("conversation_id") @db.Uuid
+  input              Json            @default("{}")
+  output             Json            @default("{}")
+  logs               Json            @default("[]")
+  status             ActionRunStatus @default(PENDING)
+  startedAt          DateTime        @default(now()) @map("started_at")
+  completedAt        DateTime?       @map("completed_at")
+
+  actionDefinition ActionDefinition @relation(fields: [actionDefinitionId], references: [id])
+  conversation     Conversation     @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@map("action_runs")
+}
+
+enum ActionRunStatus {
+  PENDING
+  AWAITING_CONFIRMATION
+  EXECUTING
+  COMPLETED
+  FAILED
+}
+
+// ============================================
+// INTEGRATIONS
+// ============================================
+
+model IntegrationConnection {
+  id           String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String            @map("tenant_id") @db.Uuid
+  provider     String
+  authState    Json              @default("{}") @map("auth_state")
+  config       Json              @default("{}")
+  scopes       String[]          @default([])
+  health       IntegrationHealth @default(HEALTHY)
+  lastSyncAt   DateTime?         @map("last_sync_at")
+  errorMessage String?           @map("error_message")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
+  @@map("integration_connections")
+}
+
+enum IntegrationHealth {
+  HEALTHY
+  DEGRADED
+  DISCONNECTED
+  ERROR
+}
+
+// ============================================
+// EVENTS & ANALYTICS
+// ============================================
+
+model EventLog {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  eventType String   @map("event_type")
+  payload   Json     @default("{}")
+  ts        DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, eventType, ts])
+  @@index([ts])
+  @@map("event_logs")
+}
+
+model UsageCounter {
+  tenantId   String @map("tenant_id") @db.Uuid
+  metricName String @map("metric_name")
+  period     String
+  value      Int    @default(0)
+
+  @@id([tenantId, metricName, period])
+  @@map("usage_counters")
+}
