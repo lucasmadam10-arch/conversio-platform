@@ -1,5 +1,5 @@
 import type { Contact } from "@conversio/db";
-import { prisma } from "@conversio/db";
+import { prisma, Prisma } from "@conversio/db";
 import { NotFoundError } from "@conversio/shared";
 import { assertTenantMatch } from "@conversio/shared";
 
@@ -34,8 +34,8 @@ export class ContactRepository {
     return prisma.contact.create({
       data: {
         tenantId: data.tenantId,
-        properties: data.properties ?? {},
-        externalIds: data.externalIds ?? {},
+        properties: (data.properties ?? {}) as Prisma.InputJsonValue,
+        externalIds: (data.externalIds ?? {}) as Prisma.InputJsonValue,
         tags: data.tags ?? [],
       },
     });
@@ -53,7 +53,11 @@ export class ContactRepository {
     const existing = await this.findById(tenantId, contactId);
     return prisma.contact.update({
       where: { id: existing.id },
-      data,
+      data: {
+        ...(data.properties !== undefined && { properties: data.properties as Prisma.InputJsonValue }),
+        ...(data.tags !== undefined && { tags: data.tags }),
+        ...(data.lastSeenAt !== undefined && { lastSeenAt: data.lastSeenAt }),
+      },
     });
   }
 

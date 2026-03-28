@@ -1,5 +1,5 @@
 import type { Message } from "@conversio/db";
-import { prisma } from "@conversio/db";
+import { prisma, Prisma } from "@conversio/db";
 import type { CursorPage } from "@conversio/shared";
 import { buildCursor, parseCursor } from "@conversio/shared";
 import type { MessagePayloadInput } from "@conversio/shared";
@@ -18,7 +18,7 @@ export class MessageRepository {
         senderType: data.senderType,
         senderId: data.senderId,
         payload: data.payload as object,
-        metadata: data.metadata ?? {},
+        metadata: (data.metadata ?? {}) as Prisma.InputJsonValue,
       },
     });
   }

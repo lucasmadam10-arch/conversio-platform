@@ -1,4 +1,4 @@
-import { prisma } from "@conversio/db";
+import { prisma, Prisma } from "@conversio/db";
 import type { DomainEvent } from "@conversio/shared";
 
 /**
@@ -12,7 +12,7 @@ export class EventLogService {
         id: event.id,
         tenantId: event.tenantId,
         eventType: event.type,
-        payload: event.payload,
+        payload: event.payload as Prisma.InputJsonValue,
         ts: new Date(event.ts),
       },
     });

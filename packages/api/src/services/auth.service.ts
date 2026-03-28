@@ -43,7 +43,7 @@ export class AuthService {
   async registerTenant(input: RegisterTenantInput): Promise<TokenPair> {
     const passwordHash = await bcrypt.hash(input.password, 12);
 
-    const result = await prisma.$transaction(async (tx: typeof prisma) => {
+    const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           name: input.tenantName,

@@ -1,5 +1,6 @@
 export { prisma } from "./client";
 export type { PrismaTransactionClient } from "./client";
+export { Prisma } from "./generated/client";
 
 // Re-export all Prisma types and enums
 export type {

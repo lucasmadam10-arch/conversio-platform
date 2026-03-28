@@ -1,4 +1,4 @@
-import { prisma } from "@conversio/db";
+import { prisma, Prisma } from "@conversio/db";
 import type { PrismaTransactionClient } from "@conversio/db";
 import { NotFoundError, ConflictError, assertTenantMatch } from "@conversio/shared";
 import type { CreateTicketInput, UpdateTicketInput, ListTicketsInput } from "@conversio/shared";
@@ -60,7 +60,7 @@ export class TicketRepository {
           priority: input.priority ?? "MEDIUM",
           ownerId: input.ownerId ?? null,
           source: input.source ?? "MANUAL",
-          metadata: input.metadata ?? {},
+          metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
         },
       });
     } catch (e: unknown) {
