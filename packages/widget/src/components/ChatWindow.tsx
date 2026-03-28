@@ -52,7 +52,7 @@ export function ChatWindow({ wsClient }: Props) {
         flexDirection: "column",
         overflow: "hidden",
         zIndex: 9999,
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        fontFamily: "'Heebo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
       {/* Header */}
