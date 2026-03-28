@@ -2,6 +2,8 @@ FROM node:20-alpine
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY . .
+# Remove stale Windows build cache
+RUN find . -name "*.tsbuildinfo" -delete && find . -name "*.dll.node" -delete
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @conversio/shared build
 RUN pnpm --filter @conversio/db build

@@ -33,6 +33,10 @@ coverage/
 
 # Prisma
 packages/db/prisma/migrations/**/migration_lock.toml
+# Windows-only Prisma binary (not needed in Linux Docker)
+**/*.dll.node
+# TypeScript build cache (platform-specific, should not be committed)
+**/*.tsbuildinfo
 
 # MinIO data (local dev)
 minio-data/
